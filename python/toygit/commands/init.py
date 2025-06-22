@@ -34,6 +34,7 @@ def init_repository(path: Path, force: bool = False) -> None:
         # Create .git directory
         if git_dir.exists() and force:
             import shutil
+
             shutil.rmtree(git_dir)
         git_dir.mkdir(exist_ok=True)
 
