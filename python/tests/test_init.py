@@ -59,20 +59,49 @@ class TestInitCommand:
             content = head_file.read_text().strip()
             assert content == "ref: refs/heads/main"
 
-    def test_init_in_existing_git_repo(self):
-        """Test that init works in existing Git repository."""
+    def test_init_in_existing_git_repo_fails_without_force(self):
+        """Test that init fails in existing Git repository without --force."""
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_path = Path(temp_dir)
 
             # Initialize once
             init_repository(repo_path)
 
-            # Initialize again (should not fail)
-            init_repository(repo_path)
+            # Initialize again without force (should fail)
+            with pytest.raises(FileExistsError, match="Git repository already exists"):
+                init_repository(repo_path)
 
             # Check that .git directory still exists
             git_dir = repo_path / ".git"
             assert git_dir.exists()
+
+    def test_init_in_existing_git_repo_succeeds_with_force(self):
+        """Test that init succeeds in existing Git repository with force=True."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_path = Path(temp_dir)
+
+            # Initialize once
+            init_repository(repo_path)
+
+            # Initialize again with force (should succeed)
+            init_repository(repo_path, force=True)
+
+            # Check that .git directory still exists
+            git_dir = repo_path / ".git"
+            assert git_dir.exists()
+
+    def test_init_force_flag_with_new_repository(self):
+        """Test that force flag works correctly with new repository."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_path = Path(temp_dir)
+
+            # Initialize with force=True (should succeed even for new repo)
+            init_repository(repo_path, force=True)
+
+            # Check that .git directory was created
+            git_dir = repo_path / ".git"
+            assert git_dir.exists()
+            assert git_dir.is_dir()
 
     def test_init_in_nonexistent_directory(self):
         """Test that init fails gracefully with nonexistent directory."""
