@@ -65,11 +65,11 @@ class TestInitCommand:
             repo_path = Path(temp_dir)
 
             # Initialize once
-            init_repository(repo_path, force=False)
+            init_repository(repo_path)
 
             # Initialize again without force (should fail)
             with pytest.raises(FileExistsError, match="Git repository already exists"):
-                init_repository(repo_path)
+                init_repository(repo_path, force=False)
 
             # Check that .git directory still exists
             git_dir = repo_path / ".git"
