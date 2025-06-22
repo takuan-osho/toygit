@@ -195,7 +195,7 @@ Key configuration sections:
 
 1. **Pre-commit Failures**: Run `pre-commit run --all-files` to fix issues
 2. **Test Failures**: Check that you're in the correct environment with `python --version`
-3. **Import Errors**: Ensure the package is installed with `pip install -e .`
+3. **Import Errors**: Ensure the package is installed with `uv pip install -e .`
 
 ## Contributing
 
