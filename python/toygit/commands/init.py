@@ -28,17 +28,22 @@ def init_repository(path: Path, force: bool = False) -> None:
             f"Git repository already exists in {path}. Use --force to reinitialize."
         )
 
-    # Create .git directory
-    # exist_ok=True is safe here because we've already validated existence above
-    git_dir.mkdir(exist_ok=True)
+    try:
+        # Create .git directory
+        # exist_ok=True is safe here because we've already validated existence above
+        git_dir.mkdir(exist_ok=True)
 
-    # Create required subdirectories
-    # exist_ok=True is safe for all subdirectories since parent is controlled
-    (git_dir / "objects").mkdir(exist_ok=True)
-    (git_dir / "refs").mkdir(exist_ok=True)
-    (git_dir / "refs" / "heads").mkdir(exist_ok=True)
-    (git_dir / "refs" / "tags").mkdir(exist_ok=True)
+        # Create required subdirectories
+        # exist_ok=True is safe for all subdirectories since parent is controlled
+        (git_dir / "objects").mkdir(exist_ok=True)
+        (git_dir / "refs").mkdir(exist_ok=True)
+        (git_dir / "refs" / "heads").mkdir(exist_ok=True)
+        (git_dir / "refs" / "tags").mkdir(exist_ok=True)
 
-    # Create HEAD file pointing to main branch
-    head_file = git_dir / "HEAD"
-    head_file.write_text("ref: refs/heads/main\n")
+        # Create HEAD file pointing to main branch
+        head_file = git_dir / "HEAD"
+        head_file.write_text("ref: refs/heads/main\n")
+    except PermissionError as e:
+        raise PermissionError(
+            f"Permission denied: Cannot create Git repository in {path}. {e}"
+        ) from e
