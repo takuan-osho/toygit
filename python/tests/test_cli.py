@@ -84,6 +84,9 @@ def test_find_repository_root_with_symlinks(tmp_path):
     symlink_path = tmp_path / "symlink_to_subdir"
     symlink_path.symlink_to(subdir)
 
+    # Verify symlink was created successfully
+    assert symlink_path.is_symlink()
+
     # Should resolve symlink and find repository root
     result = _find_repository_root(symlink_path)
     assert result == tmp_path
