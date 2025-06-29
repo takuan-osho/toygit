@@ -275,3 +275,210 @@ def test_add_single_file_nonexistent(tmp_path, capsys):
     # Should print error message
     captured = capsys.readouterr()
     assert "error: unable to read file 'nonexistent.txt'" in captured.out
+
+
+def test_add_single_file_permission_error(tmp_path, capsys, monkeypatch):
+    """Test _add_single_file with permission error."""
+    import builtins
+
+    objects_dir = tmp_path / "objects"
+    objects_dir.mkdir()
+    index = {}
+
+    # Create a test file
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test content")
+
+    # Mock open to raise PermissionError
+    original_open = builtins.open
+
+    def mock_open(*args, **kwargs):
+        if str(args[0]).endswith("test.txt") and "rb" in args:
+            raise PermissionError("Permission denied")
+        return original_open(*args, **kwargs)  # type: ignore[misc] # Mock forwards dynamic args to real open(), but type checker can't match the complex open() overloads
+
+    monkeypatch.setattr(builtins, "open", mock_open)
+
+    _add_single_file("test.txt", tmp_path, objects_dir, index)
+
+    # Should not be added to index
+    assert "test.txt" not in index
+
+    # Should print error message
+    captured = capsys.readouterr()
+    assert "error: insufficient permission to read 'test.txt'" in captured.out
+
+
+def test_add_single_file_is_directory_error(tmp_path, capsys, monkeypatch):
+    """Test _add_single_file with directory instead of file."""
+    import builtins
+
+    objects_dir = tmp_path / "objects"
+    objects_dir.mkdir()
+    index = {}
+
+    # Create a directory
+    test_dir = tmp_path / "testdir"
+    test_dir.mkdir()
+
+    # Mock open to raise IsADirectoryError
+    original_open = builtins.open
+
+    def mock_open(*args, **kwargs):
+        if str(args[0]).endswith("testdir") and "rb" in args:
+            raise IsADirectoryError("Is a directory")
+        return original_open(*args, **kwargs)  # type: ignore[misc] # Mock forwards dynamic args to real open(), but type checker can't match the complex open() overloads
+
+    monkeypatch.setattr(builtins, "open", mock_open)
+
+    _add_single_file("testdir", tmp_path, objects_dir, index)
+
+    # Should not be added to index
+    assert "testdir" not in index
+
+    # Should print error message
+    captured = capsys.readouterr()
+    assert "error: 'testdir' is a directory" in captured.out
+
+
+def test_add_single_file_general_os_error(tmp_path, capsys, monkeypatch):
+    """Test _add_single_file with general OSError."""
+    import builtins
+
+    objects_dir = tmp_path / "objects"
+    objects_dir.mkdir()
+    index = {}
+
+    # Create a test file
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test content")
+
+    # Mock open to raise OSError
+    original_open = builtins.open
+
+    def mock_open(*args, **kwargs):
+        if str(args[0]).endswith("test.txt") and "rb" in args:
+            raise OSError("Input/output error")
+        return original_open(*args, **kwargs)  # type: ignore[misc] # Mock forwards dynamic args to real open(), but type checker can't match the complex open() overloads
+
+    monkeypatch.setattr(builtins, "open", mock_open)
+
+    _add_single_file("test.txt", tmp_path, objects_dir, index)
+
+    # Should not be added to index
+    assert "test.txt" not in index
+
+    # Should print error message
+    captured = capsys.readouterr()
+    assert "error: unable to read file 'test.txt': Input/output error" in captured.out
+
+
+def test_add_single_file_atomic_write_success(tmp_path):
+    """Test _add_single_file creates blob object with atomic write."""
+    objects_dir = tmp_path / "objects"
+    objects_dir.mkdir()
+    index = {}
+
+    # Create test file
+    test_file = tmp_path / "test.txt"
+    test_content = "test content for atomic write"
+    test_file.write_text(test_content)
+
+    _add_single_file("test.txt", tmp_path, objects_dir, index)
+
+    # Should be added to index
+    assert "test.txt" in index
+
+    # Check that blob object was created correctly
+    blob_hash = index["test.txt"]
+    obj_dir = objects_dir / blob_hash[:2]
+    obj_file = obj_dir / blob_hash[2:]
+
+    assert obj_file.exists()
+
+    # Verify blob content is correct
+    blob_data = obj_file.read_bytes()
+    expected_blob = (
+        b"blob "
+        + str(len(test_content.encode())).encode()
+        + b"\0"
+        + test_content.encode()
+    )
+    assert blob_data == expected_blob
+
+
+def test_add_single_file_atomic_write_temp_cleanup(tmp_path, monkeypatch):
+    """Test _add_single_file cleans up temp file on error during atomic write."""
+    import tempfile
+    import os
+
+    objects_dir = tmp_path / "objects"
+    objects_dir.mkdir()
+    index = {}
+
+    # Create test file
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test content")
+
+    # Keep track of temp files created
+    temp_files_created = []
+    original_mkstemp = tempfile.mkstemp
+
+    def mock_mkstemp(*args, **kwargs):
+        fd, path = original_mkstemp(*args, **kwargs)
+        temp_files_created.append(path)
+        return fd, path
+
+    # Mock os.rename to raise an error
+    def mock_rename(*args, **kwargs):
+        raise OSError("Simulated rename error")
+
+    monkeypatch.setattr(tempfile, "mkstemp", mock_mkstemp)
+    monkeypatch.setattr(os, "rename", mock_rename)
+
+    # This should raise an exception but clean up temp files
+    with pytest.raises(OSError, match="Simulated rename error"):
+        _add_single_file("test.txt", tmp_path, objects_dir, index)
+
+    # Temp file should have been cleaned up
+    for temp_file in temp_files_created:
+        assert not os.path.exists(temp_file), (
+            f"Temp file {temp_file} was not cleaned up"
+        )
+
+    # Should not be added to index
+    assert "test.txt" not in index
+
+
+def test_add_single_file_existing_blob_not_overwritten(tmp_path):
+    """Test _add_single_file doesn't overwrite existing blob objects."""
+    objects_dir = tmp_path / "objects"
+    objects_dir.mkdir()
+    index = {}
+
+    # Create test file
+    test_file = tmp_path / "test.txt"
+    test_content = "test content"
+    test_file.write_text(test_content)
+
+    # Add file first time
+    _add_single_file("test.txt", tmp_path, objects_dir, index)
+
+    # Get the blob path and modify it
+    blob_hash = index["test.txt"]
+    obj_dir = objects_dir / blob_hash[:2]
+    obj_file = obj_dir / blob_hash[2:]
+
+    # Record original modification time
+    original_mtime = obj_file.stat().st_mtime
+
+    # Wait a bit to ensure different mtime if file was recreated
+    import time
+
+    time.sleep(0.01)
+
+    # Add same file again
+    _add_single_file("test.txt", tmp_path, objects_dir, index)
+
+    # File should not have been recreated (mtime should be same)
+    assert obj_file.stat().st_mtime == original_mtime

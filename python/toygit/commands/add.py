@@ -1,4 +1,6 @@
 import hashlib
+import os
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -76,11 +78,22 @@ def _add_single_file(
     """Add a single file to the staging area."""
     full_path = repo_path / file_path
 
-    # Read file content
+    # Read file content with specific error handling
     try:
         with open(full_path, "rb") as f:
             content = f.read()
-    except Exception as e:
+    except FileNotFoundError:
+        print(
+            f"error: unable to read file '{file_path}': [Errno 2] No such file or directory"
+        )
+        return
+    except PermissionError:
+        print(f"error: insufficient permission to read '{file_path}'")
+        return
+    except IsADirectoryError:
+        print(f"error: '{file_path}' is a directory")
+        return
+    except OSError as e:
         print(f"error: unable to read file '{file_path}': {e}")
         return
 
@@ -88,14 +101,26 @@ def _add_single_file(
     blob_data = b"blob " + str(len(content)).encode() + b"\0" + content
     blob_hash = hashlib.sha1(blob_data).hexdigest()
 
-    # Store blob object
+    # Store blob object with atomic write to prevent race conditions
     obj_dir = objects_dir / blob_hash[:2]
     obj_dir.mkdir(parents=True, exist_ok=True)
     obj_file = obj_dir / blob_hash[2:]
 
     if not obj_file.exists():
-        with open(obj_file, "wb") as f:
-            f.write(blob_data)
+        # Use atomic write to prevent race conditions
+        temp_fd, temp_path = tempfile.mkstemp(dir=obj_dir)
+        try:
+            with os.fdopen(temp_fd, "wb") as f:
+                f.write(blob_data)
+            # Atomic move - this prevents corruption from concurrent writes
+            os.rename(temp_path, obj_file)
+        except Exception:
+            # Clean up temp file if something goes wrong
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+            raise
 
     # Update index
     index[file_path] = blob_hash
