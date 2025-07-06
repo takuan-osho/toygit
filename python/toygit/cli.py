@@ -3,8 +3,8 @@ from typing import Annotated
 
 import typer
 
-from toygit.commands.init import init_repository_sync
 from toygit.commands.add import add_files_sync
+from toygit.commands.init import init_repository_sync
 
 
 def _find_repository_root(start_path: Path) -> Path:

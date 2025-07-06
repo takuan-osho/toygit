@@ -3,11 +3,11 @@ import asyncio
 import pytest
 
 from toygit.commands.add import (
-    add_files,
+    _add_single_file,
+    _collect_files_to_add,
     _load_index,
     _save_index,
-    _collect_files_to_add,
-    _add_single_file,
+    add_files,
 )
 from toygit.commands.init import init_repository
 
@@ -456,8 +456,8 @@ async def test_add_single_file_atomic_write_success(tmp_path):
 @pytest.mark.asyncio
 async def test_add_single_file_atomic_write_temp_cleanup(tmp_path, monkeypatch):
     """Test _add_single_file cleans up temp file on error during atomic write."""
-    import tempfile
     import os
+    import tempfile
 
     objects_dir = tmp_path / "objects"
     objects_dir.mkdir()
