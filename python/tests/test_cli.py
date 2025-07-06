@@ -31,6 +31,38 @@ runner = CliRunner()
 class TestCliCommands:
     """Test CLI commands using Typer's testing framework."""
 
+    def create_test_repo_with_files(self):
+        """Create a test repository with files and objects for cat-file tests."""
+        # Initialize repository
+        init_result = runner.invoke(app, ["init"])
+        assert init_result.exit_code == 0
+
+        # Create and add files
+        test_file = Path("hello.txt")
+        test_file.write_text("Hello, World!")
+
+        add_result = runner.invoke(app, ["add", "hello.txt"])
+        assert add_result.exit_code == 0
+
+        # Get blob hash from index
+        # Note: This implementation uses a simple text-based index format
+        # In a real Git implementation, this would be a binary format
+        index_file = Path(".git/index")
+        index_content = index_file.read_text()
+
+        # Find lines that contain "hello.txt" and extract hash
+        for line in index_content.split("\n"):
+            if "hello.txt" in line:
+                parts = line.split()
+                if len(parts) >= 2:
+                    # The hash should be a 40-character hex string
+                    for part in parts:
+                        if len(part) == 40 and all(
+                            c in "0123456789abcdef" for c in part
+                        ):
+                            return part
+        raise RuntimeError("No hash found in index")
+
     def test_cli_init_command_basic(self):
         """Test basic 'toygit init' command."""
         with runner.isolated_filesystem():
@@ -213,6 +245,76 @@ class TestCliCommands:
         clean_output = strip_ansi_codes(result.output)
         assert "Usage:" in clean_output
         assert "Commands" in clean_output
+
+    def test_cli_cat_file_help(self):
+        """Test 'toygit cat-file --help' command."""
+        result = runner.invoke(app, ["cat-file", "--help"])
+        assert result.exit_code == 0
+        help_text = strip_ansi_codes(result.stdout)
+        assert "Show object content, type, or size" in help_text
+        assert "--type" in help_text
+        assert "--size" in help_text
+        assert "--pretty" in help_text
+
+    def test_cli_cat_file_show_type(self):
+        """Test 'toygit cat-file -t' shows object type."""
+        with runner.isolated_filesystem():
+            blob_hash = self.create_test_repo_with_files()
+
+            result = runner.invoke(app, ["cat-file", "-t", blob_hash])
+            assert result.exit_code == 0
+            assert result.stdout.strip() == "blob"
+
+    def test_cli_cat_file_show_size(self):
+        """Test 'toygit cat-file -s' shows object size."""
+        with runner.isolated_filesystem():
+            blob_hash = self.create_test_repo_with_files()
+
+            result = runner.invoke(app, ["cat-file", "-s", blob_hash])
+            assert result.exit_code == 0
+            assert result.stdout.strip() == "13"  # len("Hello, World!")
+
+    def test_cli_cat_file_pretty_print(self):
+        """Test 'toygit cat-file -p' pretty prints content."""
+        with runner.isolated_filesystem():
+            blob_hash = self.create_test_repo_with_files()
+
+            result = runner.invoke(app, ["cat-file", "-p", blob_hash])
+            assert result.exit_code == 0
+            assert result.stdout == "Hello, World!"
+
+    def test_cli_cat_file_default_content(self):
+        """Test 'toygit cat-file' shows content by default."""
+        with runner.isolated_filesystem():
+            blob_hash = self.create_test_repo_with_files()
+
+            result = runner.invoke(app, ["cat-file", blob_hash])
+            assert result.exit_code == 0
+            assert result.stdout == "Hello, World!"
+
+    def test_cli_cat_file_abbreviated_hash(self):
+        """Test 'toygit cat-file' works with abbreviated hash."""
+        with runner.isolated_filesystem():
+            blob_hash = self.create_test_repo_with_files()
+            short_hash = blob_hash[:7]
+
+            result = runner.invoke(app, ["cat-file", "-t", short_hash])
+            assert result.exit_code == 0
+            assert result.stdout.strip() == "blob"
+
+    def test_cli_cat_file_invalid_object(self):
+        """Test 'toygit cat-file' with invalid object ID."""
+        with runner.isolated_filesystem():
+            self.create_test_repo_with_files()
+
+            result = runner.invoke(app, ["cat-file", "invalid_hash"])
+            assert result.exit_code != 0
+
+    def test_cli_cat_file_not_git_repo(self):
+        """Test 'toygit cat-file' in directory that's not a git repo."""
+        with runner.isolated_filesystem():
+            result = runner.invoke(app, ["cat-file", "somehash"])
+            assert result.exit_code != 0
 
 
 class TestFindRepositoryRoot:
