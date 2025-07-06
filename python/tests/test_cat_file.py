@@ -3,7 +3,6 @@ import tempfile
 import zlib
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from toygit.cli import app
@@ -21,29 +20,29 @@ class TestCatFile:
         git_dir.mkdir()
         objects_dir = git_dir / "objects"
         objects_dir.mkdir()
-        
+
         # Create a blob object
         blob_content = b"Hello, World!"
         blob_data = b"blob " + str(len(blob_content)).encode() + b"\0" + blob_content
         blob_hash = "af5626b4a114abcb82d63db7c8082c3c4756e51b"
-        
+
         obj_dir = objects_dir / blob_hash[:2]
         obj_dir.mkdir()
         obj_file = obj_dir / blob_hash[2:]
         with open(obj_file, "wb") as f:
             f.write(zlib.compress(blob_data))
-        
+
         # Create a tree object
         tree_content = b"100644 hello.txt\0" + bytes.fromhex(blob_hash)
         tree_data = b"tree " + str(len(tree_content)).encode() + b"\0" + tree_content
         tree_hash = "d8329fc1cc938780ffdd9f94e0d364e0ea74f579"
-        
+
         obj_dir = objects_dir / tree_hash[:2]
         obj_dir.mkdir(exist_ok=True)
         obj_file = obj_dir / tree_hash[2:]
         with open(obj_file, "wb") as f:
             f.write(zlib.compress(tree_data))
-        
+
         return blob_hash, tree_hash
 
     def test_cat_file_blob_content(self):
@@ -51,7 +50,7 @@ class TestCatFile:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_path = Path(temp_dir)
             blob_hash, _ = self.create_test_repo_with_objects(repo_path)
-            
+
             # Change directory to repo for testing
             original_cwd = os.getcwd()
             os.chdir(str(repo_path))
@@ -67,7 +66,7 @@ class TestCatFile:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_path = Path(temp_dir)
             blob_hash, tree_hash = self.create_test_repo_with_objects(repo_path)
-            
+
             original_cwd = os.getcwd()
             os.chdir(str(repo_path))
             try:
@@ -75,7 +74,7 @@ class TestCatFile:
                 result = self.runner.invoke(app, ["cat-file", "-t", blob_hash])
                 assert result.exit_code == 0
                 assert result.stdout.strip() == "blob"
-                
+
                 # Test tree type
                 result = self.runner.invoke(app, ["cat-file", "-t", tree_hash])
                 assert result.exit_code == 0
@@ -88,7 +87,7 @@ class TestCatFile:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_path = Path(temp_dir)
             blob_hash, tree_hash = self.create_test_repo_with_objects(repo_path)
-            
+
             original_cwd = os.getcwd()
             os.chdir(str(repo_path))
             try:
@@ -96,7 +95,7 @@ class TestCatFile:
                 result = self.runner.invoke(app, ["cat-file", "-s", blob_hash])
                 assert result.exit_code == 0
                 assert result.stdout.strip() == "13"  # len("Hello, World!")
-                
+
                 # Test tree size
                 result = self.runner.invoke(app, ["cat-file", "-s", tree_hash])
                 assert result.exit_code == 0
@@ -109,7 +108,7 @@ class TestCatFile:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_path = Path(temp_dir)
             blob_hash, _ = self.create_test_repo_with_objects(repo_path)
-            
+
             original_cwd = os.getcwd()
             os.chdir(str(repo_path))
             try:
@@ -124,7 +123,7 @@ class TestCatFile:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_path = Path(temp_dir)
             blob_hash, tree_hash = self.create_test_repo_with_objects(repo_path)
-            
+
             original_cwd = os.getcwd()
             os.chdir(str(repo_path))
             try:
@@ -141,7 +140,7 @@ class TestCatFile:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_path = Path(temp_dir)
             blob_hash, _ = self.create_test_repo_with_objects(repo_path)
-            
+
             original_cwd = os.getcwd()
             os.chdir(str(repo_path))
             try:
@@ -158,7 +157,7 @@ class TestCatFile:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_path = Path(temp_dir)
             self.create_test_repo_with_objects(repo_path)
-            
+
             original_cwd = os.getcwd()
             os.chdir(str(repo_path))
             try:
@@ -187,7 +186,7 @@ class TestCatFile:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_path = Path(temp_dir)
             blob_hash, _ = self.create_test_repo_with_objects(repo_path)
-            
+
             # Test that function runs without error
             cat_file_sync(blob_hash, repo_path, show_type=True)
             cat_file_sync(blob_hash, repo_path, show_size=True)
@@ -201,23 +200,23 @@ class TestCatFile:
             git_dir.mkdir()
             objects_dir = git_dir / "objects"
             objects_dir.mkdir()
-            
+
             # Create two objects with same prefix
             obj_dir = objects_dir / "ab"
             obj_dir.mkdir()
-            
+
             # Create first object
             blob_data1 = b"blob 5\0test1"
             obj_file1 = obj_dir / "cdef1234567890123456789012345678"
             with open(obj_file1, "wb") as f:
                 f.write(zlib.compress(blob_data1))
-            
+
             # Create second object with same prefix
             blob_data2 = b"blob 5\0test2"
             obj_file2 = obj_dir / "cdef9876543210987654321098765432"
             with open(obj_file2, "wb") as f:
                 f.write(zlib.compress(blob_data2))
-            
+
             # Test ambiguous hash
             original_cwd = os.getcwd()
             os.chdir(str(repo_path))
