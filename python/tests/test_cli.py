@@ -341,7 +341,9 @@ class TestCliIntegration:
             # Create file in the repository
             (nested_path / "test.txt").write_text("test content")
 
-            # Change to repository directory and add file
+            # Use os.chdir() with proper isolation for this test
+            # Note: This is necessary because the CLI needs to be run from within
+            # the git repository directory to find the .git folder
             import os
 
             original_cwd = os.getcwd()
@@ -374,6 +376,6 @@ class TestCliIntegration:
 
             # Verify file is in index with correct path
             index_file = Path(".git/index")
-            if index_file.exists():
-                index_content = index_file.read_text()
-                assert "src/main.py" in index_content
+            assert index_file.exists(), "Index file should exist after adding files"
+            index_content = index_file.read_text()
+            assert "src/main.py" in index_content
