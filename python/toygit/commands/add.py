@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import os
 import tempfile
+import zlib
 from pathlib import Path
 from typing import Optional
 
@@ -139,7 +140,9 @@ async def _add_single_file(
         try:
             os.close(temp_fd)  # Close file descriptor since we'll use aiofiles
             async with aiofiles.open(temp_path, "wb") as f:
-                await f.write(blob_data)
+                # Compress blob data with zlib before writing
+                compressed_data = zlib.compress(blob_data)
+                await f.write(compressed_data)
             # Atomic move - this prevents corruption from concurrent writes
             os.rename(temp_path, obj_file)
         except Exception:

@@ -442,7 +442,7 @@ async def test_add_single_file_atomic_write_success(tmp_path):
 
     assert obj_file.exists()
 
-    # Verify blob content is correct
+    # Verify blob content is correct (should be compressed)
     blob_data = obj_file.read_bytes()
     expected_blob = (
         b"blob "
@@ -450,7 +450,10 @@ async def test_add_single_file_atomic_write_success(tmp_path):
         + b"\0"
         + test_content.encode()
     )
-    assert blob_data == expected_blob
+    import zlib
+
+    expected_compressed = zlib.compress(expected_blob)
+    assert blob_data == expected_compressed
 
 
 @pytest.mark.asyncio
