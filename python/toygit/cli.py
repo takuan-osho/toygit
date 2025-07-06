@@ -4,6 +4,7 @@ from typing import Annotated
 import typer
 
 from toygit.commands.add import add_files_sync
+from toygit.commands.cat_file import cat_file_sync
 from toygit.commands.init import init_repository_sync
 
 
@@ -52,6 +53,27 @@ def add(
     current_path = Path.cwd()
     repo_path = _find_repository_root(current_path)
     add_files_sync(files, repo_path)
+
+
+@app.command(name="cat-file")
+def cat_file(
+    object_id: Annotated[str, typer.Argument(help="Object ID to show")],
+    type: Annotated[
+        bool, typer.Option("-t", "--type", help="Show object type")
+    ] = False,
+    size: Annotated[
+        bool, typer.Option("-s", "--size", help="Show object size")
+    ] = False,
+    pretty: Annotated[
+        bool, typer.Option("-p", "--pretty", help="Pretty-print object content")
+    ] = False,
+):
+    """Show object content, type, or size."""
+    current_path = Path.cwd()
+    repo_path = _find_repository_root(current_path)
+    cat_file_sync(
+        object_id, repo_path, show_type=type, show_size=size, pretty_print=pretty
+    )
 
 
 def main():
