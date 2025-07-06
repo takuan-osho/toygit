@@ -579,7 +579,7 @@ class TestGitObjectEdgeCases:
         assert person.timezone_offset == "-1400"
 
         # Test invalid timezone format (Pydantic will raise ValidationError)
-        with pytest.raises(Exception):  # Could be ValidationError or ValueError
+        with pytest.raises(pydantic.ValidationError):  # Expecting ValidationError
             PersonInfo(
                 name="Test User",
                 email="test@example.com",
