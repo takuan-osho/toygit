@@ -1,11 +1,11 @@
 from pathlib import Path
 
 import pytest
+from click.testing import Result
 from typer.testing import CliRunner
 
-from toygit.cli import app, _find_repository_root
+from toygit.cli import _find_repository_root, app
 from toygit.commands.init import init_repository_sync
-
 
 # Initialize the CLI runner for testing
 runner = CliRunner()
@@ -17,7 +17,7 @@ class TestCliCommands:
     def test_cli_init_command_basic(self):
         """Test basic 'toygit init' command."""
         with runner.isolated_filesystem():
-            result = runner.invoke(app, ["init"])
+            result: Result = runner.invoke(app, ["init"])
 
             assert result.exit_code == 0
             assert Path(".git").exists()
@@ -32,7 +32,7 @@ class TestCliCommands:
         with runner.isolated_filesystem():
             # Create the directory first
             Path("test_repo").mkdir()
-            result = runner.invoke(app, ["init", "test_repo"])
+            result: Result = runner.invoke(app, ["init", "test_repo"])
 
             assert result.exit_code == 0
             assert Path("test_repo/.git").exists()
@@ -46,11 +46,11 @@ class TestCliCommands:
         """Test 'toygit init --force' command."""
         with runner.isolated_filesystem():
             # Initialize first time
-            result1 = runner.invoke(app, ["init"])
+            result1: Result = runner.invoke(app, ["init"])
             assert result1.exit_code == 0
 
             # Initialize again with --force
-            result2 = runner.invoke(app, ["init", "--force"])
+            result2: Result = runner.invoke(app, ["init", "--force"])
             assert result2.exit_code == 0
             # Repository should still exist and be functional
             assert Path(".git").exists()
@@ -61,11 +61,11 @@ class TestCliCommands:
         """Test 'toygit init' fails on existing repo without --force."""
         with runner.isolated_filesystem():
             # Initialize first time
-            result1 = runner.invoke(app, ["init"])
+            result1: Result = runner.invoke(app, ["init"])
             assert result1.exit_code == 0
 
             # Initialize again without --force (should fail)
-            result2 = runner.invoke(app, ["init"])
+            result2: Result = runner.invoke(app, ["init"])
             assert result2.exit_code != 0
             # Check that the error is the expected FileExistsError
             assert isinstance(result2.exception, FileExistsError)
@@ -290,10 +290,10 @@ class TestCliIntegration:
             Path("main.py").write_text("print('Hello, World!')")
 
             # Add files one by one
-            add_result1 = runner.invoke(app, ["add", "README.md"])
+            add_result1: Result = runner.invoke(app, ["add", "README.md"])
             assert add_result1.exit_code == 0
 
-            add_result2 = runner.invoke(app, ["add", "main.py"])
+            add_result2: Result = runner.invoke(app, ["add", "main.py"])
             assert add_result2.exit_code == 0
 
             # Verify both files are in index
@@ -321,7 +321,7 @@ class TestCliIntegration:
             original_cwd = os.getcwd()
             try:
                 os.chdir(nested_path)
-                add_result = runner.invoke(app, ["add", "test.txt"])
+                add_result: Result = runner.invoke(app, ["add", "test.txt"])
                 assert add_result.exit_code == 0
 
                 # Verify file is in index
@@ -334,7 +334,7 @@ class TestCliIntegration:
         """Test adding files from subdirectory of repository."""
         with runner.isolated_filesystem():
             # Initialize repository
-            init_result = runner.invoke(app, ["init"])
+            init_result: Result = runner.invoke(app, ["init"])
             assert init_result.exit_code == 0
 
             # Create subdirectory with files
@@ -343,7 +343,7 @@ class TestCliIntegration:
             (subdir / "main.py").write_text("print('Hello from src!')")
 
             # Add files from root directory with relative path
-            add_result = runner.invoke(app, ["add", "src/main.py"])
+            add_result: Result = runner.invoke(app, ["add", "src/main.py"])
             assert add_result.exit_code == 0
 
             # Verify file is in index with correct path
