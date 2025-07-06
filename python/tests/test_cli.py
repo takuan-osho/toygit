@@ -1,13 +1,13 @@
 import pytest
 
 from toygit.cli import _find_repository_root
-from toygit.commands.init import init_repository
+from toygit.commands.init import init_repository_sync
 
 
 def test_find_repository_root_in_repo_root(tmp_path):
     """Test _find_repository_root when already in repository root."""
     # Initialize repository
-    init_repository(tmp_path)
+    init_repository_sync(tmp_path)
 
     # Should find the repository root
     result = _find_repository_root(tmp_path)
@@ -17,7 +17,7 @@ def test_find_repository_root_in_repo_root(tmp_path):
 def test_find_repository_root_in_subdirectory(tmp_path):
     """Test _find_repository_root from a subdirectory."""
     # Initialize repository
-    init_repository(tmp_path)
+    init_repository_sync(tmp_path)
 
     # Create subdirectory
     subdir = tmp_path / "subdir" / "nested"
@@ -31,7 +31,7 @@ def test_find_repository_root_in_subdirectory(tmp_path):
 def test_find_repository_root_deeply_nested(tmp_path):
     """Test _find_repository_root from deeply nested subdirectory."""
     # Initialize repository
-    init_repository(tmp_path)
+    init_repository_sync(tmp_path)
 
     # Create deeply nested directory
     deep_dir = tmp_path / "a" / "b" / "c" / "d" / "e"
@@ -56,12 +56,12 @@ def test_find_repository_root_no_git_directory(tmp_path):
 def test_find_repository_root_nested_git_repos(tmp_path):
     """Test _find_repository_root finds closest .git directory."""
     # Initialize outer repository
-    init_repository(tmp_path)
+    init_repository_sync(tmp_path)
 
     # Create inner directory and initialize another repository
     inner_dir = tmp_path / "inner"
     inner_dir.mkdir()
-    init_repository(inner_dir)
+    init_repository_sync(inner_dir)
 
     # Create subdirectory in inner repo
     inner_subdir = inner_dir / "subdir"
@@ -75,7 +75,7 @@ def test_find_repository_root_nested_git_repos(tmp_path):
 def test_find_repository_root_with_symlinks(tmp_path):
     """Test _find_repository_root resolves symlinks correctly."""
     # Initialize repository
-    init_repository(tmp_path)
+    init_repository_sync(tmp_path)
 
     # Create symlink to a subdirectory
     subdir = tmp_path / "subdir"

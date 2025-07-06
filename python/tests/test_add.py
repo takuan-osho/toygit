@@ -1,4 +1,5 @@
 import pytest
+import pytest_asyncio
 
 from toygit.commands.add import (
     add_files,
@@ -10,17 +11,18 @@ from toygit.commands.add import (
 from toygit.commands.init import init_repository
 
 
-def test_add_single_file(tmp_path):
+@pytest.mark.asyncio
+async def test_add_single_file(tmp_path):
     """Test adding a single file to staging area."""
     # Initialize repository
-    init_repository(tmp_path)
+    await init_repository(tmp_path)
 
     # Create test file
     test_file = tmp_path / "test.txt"
     test_file.write_text("Hello, world!")
 
     # Add file
-    add_files(["test.txt"], tmp_path)
+    await add_files(["test.txt"], tmp_path)
 
     # Check index file
     index_file = tmp_path / ".git" / "index"
@@ -34,10 +36,11 @@ def test_add_single_file(tmp_path):
     assert any(objects_dir.rglob("*"))
 
 
-def test_add_multiple_files(tmp_path):
+@pytest.mark.asyncio
+async def test_add_multiple_files(tmp_path):
     """Test adding multiple files to staging area."""
     # Initialize repository
-    init_repository(tmp_path)
+    await init_repository(tmp_path)
 
     # Create test files
     file1 = tmp_path / "file1.txt"
@@ -46,7 +49,7 @@ def test_add_multiple_files(tmp_path):
     file2.write_text("Content 2")
 
     # Add files
-    add_files(["file1.txt", "file2.txt"], tmp_path)
+    await add_files(["file1.txt", "file2.txt"], tmp_path)
 
     # Check index file
     index_file = tmp_path / ".git" / "index"
@@ -55,10 +58,11 @@ def test_add_multiple_files(tmp_path):
     assert "file2.txt" in index_content
 
 
-def test_add_directory(tmp_path):
+@pytest.mark.asyncio
+async def test_add_directory(tmp_path):
     """Test adding a directory recursively."""
     # Initialize repository
-    init_repository(tmp_path)
+    await init_repository(tmp_path)
 
     # Create directory with files
     subdir = tmp_path / "subdir"
@@ -67,7 +71,7 @@ def test_add_directory(tmp_path):
     (subdir / "file2.txt").write_text("Content 2")
 
     # Add directory
-    add_files(["subdir"], tmp_path)
+    await add_files(["subdir"], tmp_path)
 
     # Check index file
     index_file = tmp_path / ".git" / "index"
@@ -76,13 +80,14 @@ def test_add_directory(tmp_path):
     assert "subdir/file2.txt" in index_content
 
 
-def test_add_nonexistent_file(tmp_path):
+@pytest.mark.asyncio
+async def test_add_nonexistent_file(tmp_path):
     """Test adding a file that doesn't exist."""
     # Initialize repository
-    init_repository(tmp_path)
+    await init_repository(tmp_path)
 
     # Add non-existent file (should not raise exception)
-    add_files(["nonexistent.txt"], tmp_path)
+    await add_files(["nonexistent.txt"], tmp_path)
 
     # Index should be empty or not exist
     index_file = tmp_path / ".git" / "index"
@@ -90,7 +95,8 @@ def test_add_nonexistent_file(tmp_path):
         assert index_file.read_text().strip() == ""
 
 
-def test_add_not_in_repository(tmp_path):
+@pytest.mark.asyncio
+async def test_add_not_in_repository(tmp_path):
     """Test adding files when not in a repository."""
     # Create test file without initializing repository
     test_file = tmp_path / "test.txt"
@@ -98,20 +104,21 @@ def test_add_not_in_repository(tmp_path):
 
     # Should raise error
     with pytest.raises(RuntimeError, match="not a git repository"):
-        add_files(["test.txt"], tmp_path)
+        await add_files(["test.txt"], tmp_path)
 
 
-def test_add_ignores_git_directory(tmp_path):
+@pytest.mark.asyncio
+async def test_add_ignores_git_directory(tmp_path):
     """Test that .git directory is ignored."""
     # Initialize repository
-    init_repository(tmp_path)
+    await init_repository(tmp_path)
 
     # Create file in .git directory
     git_file = tmp_path / ".git" / "config"
     git_file.write_text("some config")
 
     # Add everything
-    add_files(["."], tmp_path)
+    await add_files(["."], tmp_path)
 
     # Check that .git files are not in index
     index_file = tmp_path / ".git" / "index"
@@ -120,17 +127,18 @@ def test_add_ignores_git_directory(tmp_path):
         assert ".git" not in index_content
 
 
-def test_add_same_file_twice(tmp_path):
+@pytest.mark.asyncio
+async def test_add_same_file_twice(tmp_path):
     """Test adding the same file twice updates the index."""
     # Initialize repository
-    init_repository(tmp_path)
+    await init_repository(tmp_path)
 
     # Create test file
     test_file = tmp_path / "test.txt"
     test_file.write_text("Original content")
 
     # Add file first time
-    add_files(["test.txt"], tmp_path)
+    await add_files(["test.txt"], tmp_path)
 
     # Get first hash
     index_file = tmp_path / ".git" / "index"
@@ -139,7 +147,7 @@ def test_add_same_file_twice(tmp_path):
 
     # Modify file and add again
     test_file.write_text("Modified content")
-    add_files(["test.txt"], tmp_path)
+    await add_files(["test.txt"], tmp_path)
 
     # Get second hash
     second_content = index_file.read_text()
@@ -154,93 +162,103 @@ def test_add_same_file_twice(tmp_path):
 # Unit tests for individual functions
 
 
-def test_load_index_empty_file(tmp_path):
+@pytest.mark.asyncio
+async def test_load_index_empty_file(tmp_path):
     """Test loading index from non-existent file."""
     index_file = tmp_path / "index"
-    index = _load_index(index_file)
+    index = await _load_index(index_file)
     assert index == {}
 
 
-def test_load_index_existing_file(tmp_path):
+@pytest.mark.asyncio
+async def test_load_index_existing_file(tmp_path):
     """Test loading index from existing file."""
     index_file = tmp_path / "index"
     index_file.write_text("file1.txt abc123\nfile2.txt def456\n")
 
-    index = _load_index(index_file)
+    index = await _load_index(index_file)
     assert index == {"file1.txt": "abc123", "file2.txt": "def456"}
 
 
-def test_load_index_with_empty_lines(tmp_path):
+@pytest.mark.asyncio
+async def test_load_index_with_empty_lines(tmp_path):
     """Test loading index with empty lines."""
     index_file = tmp_path / "index"
     index_file.write_text("file1.txt abc123\n\nfile2.txt def456\n\n")
 
-    index = _load_index(index_file)
+    index = await _load_index(index_file)
     assert index == {"file1.txt": "abc123", "file2.txt": "def456"}
 
 
-def test_save_index_empty(tmp_path):
+@pytest.mark.asyncio
+async def test_save_index_empty(tmp_path):
     """Test saving empty index."""
     index_file = tmp_path / "index"
-    _save_index({}, index_file)
+    await _save_index({}, index_file)
 
     assert index_file.read_text() == ""
 
 
-def test_save_index_with_data(tmp_path):
+@pytest.mark.asyncio
+async def test_save_index_with_data(tmp_path):
     """Test saving index with data."""
     index_file = tmp_path / "index"
     index = {"file2.txt": "def456", "file1.txt": "abc123"}
-    _save_index(index, index_file)
+    await _save_index(index, index_file)
 
     content = index_file.read_text()
     # Should be sorted
     assert content == "file1.txt abc123\nfile2.txt def456\n"
 
 
-def test_collect_files_single_file(tmp_path):
+@pytest.mark.asyncio
+async def test_collect_files_single_file(tmp_path):
     """Test collecting single file."""
     test_file = tmp_path / "test.txt"
     test_file.write_text("content")
 
-    files = _collect_files_to_add(["test.txt"], tmp_path)
+    files = await _collect_files_to_add(["test.txt"], tmp_path)
     assert files == ["test.txt"]
 
 
-def test_collect_files_nonexistent_file(tmp_path, capsys):
+@pytest.mark.asyncio
+async def test_collect_files_nonexistent_file(tmp_path, capsys):
     """Test collecting non-existent file."""
-    files = _collect_files_to_add(["nonexistent.txt"], tmp_path)
+    files = await _collect_files_to_add(["nonexistent.txt"], tmp_path)
     assert files == []
 
     captured = capsys.readouterr()
     assert "fatal: pathspec 'nonexistent.txt' did not match any files" in captured.out
 
 
-def test_collect_files_directory(tmp_path):
+@pytest.mark.asyncio
+async def test_collect_files_directory(tmp_path):
     """Test collecting files from directory."""
     subdir = tmp_path / "subdir"
     subdir.mkdir()
     (subdir / "file1.txt").write_text("content1")
     (subdir / "file2.txt").write_text("content2")
 
-    files = _collect_files_to_add(["subdir"], tmp_path)
+    files = await _collect_files_to_add(["subdir"], tmp_path)
     assert set(files) == {"subdir/file1.txt", "subdir/file2.txt"}
 
 
-def test_collect_files_ignores_git_directory(tmp_path):
+@pytest.mark.asyncio
+async def test_collect_files_ignores_git_directory(tmp_path):
     """Test that .git directory is ignored when collecting files."""
     git_dir = tmp_path / ".git"
     git_dir.mkdir()
     (git_dir / "config").write_text("config content")
 
-    files = _collect_files_to_add([".git"], tmp_path)
+    files = await _collect_files_to_add([".git"], tmp_path)
     assert files == []
 
 
-def test_add_single_file_unit(tmp_path):
+@pytest.mark.asyncio
+async def test_add_single_file_unit(tmp_path):
     """Test _add_single_file function directly."""
     # Setup
-    init_repository(tmp_path)
+    await init_repository(tmp_path)
     test_file = tmp_path / "test.txt"
     test_file.write_text("Hello, world!")
 
@@ -248,7 +266,7 @@ def test_add_single_file_unit(tmp_path):
     index = {}
 
     # Test
-    _add_single_file("test.txt", tmp_path, objects_dir, index)
+    await _add_single_file("test.txt", tmp_path, objects_dir, index)
 
     # Verify
     assert "test.txt" in index
@@ -261,13 +279,14 @@ def test_add_single_file_unit(tmp_path):
     assert obj_file.exists()
 
 
-def test_add_single_file_nonexistent(tmp_path, capsys):
+@pytest.mark.asyncio
+async def test_add_single_file_nonexistent(tmp_path, capsys):
     """Test _add_single_file with non-existent file."""
     objects_dir = tmp_path / "objects"
     objects_dir.mkdir()
     index = {}
 
-    _add_single_file("nonexistent.txt", tmp_path, objects_dir, index)
+    await _add_single_file("nonexistent.txt", tmp_path, objects_dir, index)
 
     # Should not be added to index
     assert "nonexistent.txt" not in index
@@ -277,9 +296,10 @@ def test_add_single_file_nonexistent(tmp_path, capsys):
     assert "error: unable to read file 'nonexistent.txt'" in captured.out
 
 
-def test_add_single_file_permission_error(tmp_path, capsys, monkeypatch):
+@pytest.mark.asyncio
+async def test_add_single_file_permission_error(tmp_path, capsys, monkeypatch):
     """Test _add_single_file with permission error."""
-    import builtins
+    import aiofiles
 
     objects_dir = tmp_path / "objects"
     objects_dir.mkdir()
@@ -289,17 +309,21 @@ def test_add_single_file_permission_error(tmp_path, capsys, monkeypatch):
     test_file = tmp_path / "test.txt"
     test_file.write_text("test content")
 
-    # Mock open to raise PermissionError
-    original_open = builtins.open
+    # Mock aiofiles.open to raise PermissionError
+    class MockAsyncContext:
+        async def __aenter__(self):
+            raise PermissionError("Permission denied")
+        async def __aexit__(self, *args):
+            pass
 
     def mock_open(*args, **kwargs):
         if str(args[0]).endswith("test.txt") and "rb" in args:
-            raise PermissionError("Permission denied")
-        return original_open(*args, **kwargs)  # type: ignore[misc] # Mock forwards dynamic args to real open(), but type checker can't match the complex open() overloads
+            return MockAsyncContext()
+        return aiofiles.open(*args, **kwargs)
 
-    monkeypatch.setattr(builtins, "open", mock_open)
+    monkeypatch.setattr(aiofiles, "open", mock_open)
 
-    _add_single_file("test.txt", tmp_path, objects_dir, index)
+    await _add_single_file("test.txt", tmp_path, objects_dir, index)
 
     # Should not be added to index
     assert "test.txt" not in index
@@ -309,9 +333,10 @@ def test_add_single_file_permission_error(tmp_path, capsys, monkeypatch):
     assert "error: insufficient permission to read 'test.txt'" in captured.out
 
 
-def test_add_single_file_is_directory_error(tmp_path, capsys, monkeypatch):
+@pytest.mark.asyncio
+async def test_add_single_file_is_directory_error(tmp_path, capsys, monkeypatch):
     """Test _add_single_file with directory instead of file."""
-    import builtins
+    import aiofiles
 
     objects_dir = tmp_path / "objects"
     objects_dir.mkdir()
@@ -321,17 +346,21 @@ def test_add_single_file_is_directory_error(tmp_path, capsys, monkeypatch):
     test_dir = tmp_path / "testdir"
     test_dir.mkdir()
 
-    # Mock open to raise IsADirectoryError
-    original_open = builtins.open
+    # Mock aiofiles.open to raise IsADirectoryError
+    class MockAsyncContext:
+        async def __aenter__(self):
+            raise IsADirectoryError("Is a directory")
+        async def __aexit__(self, *args):
+            pass
 
     def mock_open(*args, **kwargs):
         if str(args[0]).endswith("testdir") and "rb" in args:
-            raise IsADirectoryError("Is a directory")
-        return original_open(*args, **kwargs)  # type: ignore[misc] # Mock forwards dynamic args to real open(), but type checker can't match the complex open() overloads
+            return MockAsyncContext()
+        return aiofiles.open(*args, **kwargs)
 
-    monkeypatch.setattr(builtins, "open", mock_open)
+    monkeypatch.setattr(aiofiles, "open", mock_open)
 
-    _add_single_file("testdir", tmp_path, objects_dir, index)
+    await _add_single_file("testdir", tmp_path, objects_dir, index)
 
     # Should not be added to index
     assert "testdir" not in index
@@ -341,9 +370,10 @@ def test_add_single_file_is_directory_error(tmp_path, capsys, monkeypatch):
     assert "error: 'testdir' is a directory" in captured.out
 
 
-def test_add_single_file_general_os_error(tmp_path, capsys, monkeypatch):
+@pytest.mark.asyncio
+async def test_add_single_file_general_os_error(tmp_path, capsys, monkeypatch):
     """Test _add_single_file with general OSError."""
-    import builtins
+    import aiofiles
 
     objects_dir = tmp_path / "objects"
     objects_dir.mkdir()
@@ -353,17 +383,21 @@ def test_add_single_file_general_os_error(tmp_path, capsys, monkeypatch):
     test_file = tmp_path / "test.txt"
     test_file.write_text("test content")
 
-    # Mock open to raise OSError
-    original_open = builtins.open
+    # Mock aiofiles.open to raise OSError
+    class MockAsyncContext:
+        async def __aenter__(self):
+            raise OSError("Input/output error")
+        async def __aexit__(self, *args):
+            pass
 
     def mock_open(*args, **kwargs):
         if str(args[0]).endswith("test.txt") and "rb" in args:
-            raise OSError("Input/output error")
-        return original_open(*args, **kwargs)  # type: ignore[misc] # Mock forwards dynamic args to real open(), but type checker can't match the complex open() overloads
+            return MockAsyncContext()
+        return aiofiles.open(*args, **kwargs)
 
-    monkeypatch.setattr(builtins, "open", mock_open)
+    monkeypatch.setattr(aiofiles, "open", mock_open)
 
-    _add_single_file("test.txt", tmp_path, objects_dir, index)
+    await _add_single_file("test.txt", tmp_path, objects_dir, index)
 
     # Should not be added to index
     assert "test.txt" not in index
@@ -373,7 +407,8 @@ def test_add_single_file_general_os_error(tmp_path, capsys, monkeypatch):
     assert "error: unable to read file 'test.txt': Input/output error" in captured.out
 
 
-def test_add_single_file_atomic_write_success(tmp_path):
+@pytest.mark.asyncio
+async def test_add_single_file_atomic_write_success(tmp_path):
     """Test _add_single_file creates blob object with atomic write."""
     objects_dir = tmp_path / "objects"
     objects_dir.mkdir()
@@ -384,7 +419,7 @@ def test_add_single_file_atomic_write_success(tmp_path):
     test_content = "test content for atomic write"
     test_file.write_text(test_content)
 
-    _add_single_file("test.txt", tmp_path, objects_dir, index)
+    await _add_single_file("test.txt", tmp_path, objects_dir, index)
 
     # Should be added to index
     assert "test.txt" in index
@@ -407,7 +442,8 @@ def test_add_single_file_atomic_write_success(tmp_path):
     assert blob_data == expected_blob
 
 
-def test_add_single_file_atomic_write_temp_cleanup(tmp_path, monkeypatch):
+@pytest.mark.asyncio
+async def test_add_single_file_atomic_write_temp_cleanup(tmp_path, monkeypatch):
     """Test _add_single_file cleans up temp file on error during atomic write."""
     import tempfile
     import os
@@ -438,7 +474,7 @@ def test_add_single_file_atomic_write_temp_cleanup(tmp_path, monkeypatch):
 
     # This should raise an exception but clean up temp files
     with pytest.raises(OSError, match="Simulated rename error"):
-        _add_single_file("test.txt", tmp_path, objects_dir, index)
+        await _add_single_file("test.txt", tmp_path, objects_dir, index)
 
     # Temp file should have been cleaned up
     for temp_file in temp_files_created:
@@ -450,7 +486,8 @@ def test_add_single_file_atomic_write_temp_cleanup(tmp_path, monkeypatch):
     assert "test.txt" not in index
 
 
-def test_add_single_file_existing_blob_not_overwritten(tmp_path):
+@pytest.mark.asyncio
+async def test_add_single_file_existing_blob_not_overwritten(tmp_path):
     """Test _add_single_file doesn't overwrite existing blob objects."""
     objects_dir = tmp_path / "objects"
     objects_dir.mkdir()
@@ -462,7 +499,7 @@ def test_add_single_file_existing_blob_not_overwritten(tmp_path):
     test_file.write_text(test_content)
 
     # Add file first time
-    _add_single_file("test.txt", tmp_path, objects_dir, index)
+    await _add_single_file("test.txt", tmp_path, objects_dir, index)
 
     # Get the blob path and modify it
     blob_hash = index["test.txt"]
@@ -478,7 +515,7 @@ def test_add_single_file_existing_blob_not_overwritten(tmp_path):
     time.sleep(0.01)
 
     # Add same file again
-    _add_single_file("test.txt", tmp_path, objects_dir, index)
+    await _add_single_file("test.txt", tmp_path, objects_dir, index)
 
     # File should not have been recreated (mtime should be same)
     assert obj_file.stat().st_mtime == original_mtime

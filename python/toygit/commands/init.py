@@ -1,9 +1,12 @@
 """Git init command implementation."""
 
+import asyncio
 from pathlib import Path
 
+import aiofiles
 
-def init_repository(path: Path, force: bool = False) -> None:
+
+async def init_repository(path: Path, force: bool = False) -> None:
     """Initialize a new Git repository.
 
     Args:
@@ -38,17 +41,25 @@ def init_repository(path: Path, force: bool = False) -> None:
             shutil.rmtree(git_dir)
         git_dir.mkdir(exist_ok=True)
 
-        # Create required subdirectories
+        # Create required subdirectories concurrently
         # exist_ok=True is safe for all subdirectories since parent is controlled
-        (git_dir / "objects").mkdir(exist_ok=True)
-        (git_dir / "refs").mkdir(exist_ok=True)
-        (git_dir / "refs" / "heads").mkdir(exist_ok=True)
-        (git_dir / "refs" / "tags").mkdir(exist_ok=True)
+        await asyncio.gather(
+            asyncio.to_thread((git_dir / "objects").mkdir, exist_ok=True),
+            asyncio.to_thread((git_dir / "refs").mkdir, exist_ok=True),
+            asyncio.to_thread((git_dir / "refs" / "heads").mkdir, parents=True, exist_ok=True),
+            asyncio.to_thread((git_dir / "refs" / "tags").mkdir, parents=True, exist_ok=True)
+        )
 
         # Create HEAD file pointing to main branch
         head_file = git_dir / "HEAD"
-        head_file.write_text("ref: refs/heads/main\n")
+        async with aiofiles.open(head_file, "w") as f:
+            await f.write("ref: refs/heads/main\n")
     except PermissionError as e:
         raise PermissionError(
             f"Permission denied: Cannot create Git repository in {path}. {e}"
         ) from e
+
+
+def init_repository_sync(path: Path, force: bool = False) -> None:
+    """Synchronous wrapper for init_repository."""
+    asyncio.run(init_repository(path, force))

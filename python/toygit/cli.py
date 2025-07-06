@@ -3,8 +3,8 @@ from typing import Annotated
 
 import typer
 
-from toygit.commands.init import init_repository
-from toygit.commands.add import add_files
+from toygit.commands.init import init_repository_sync
+from toygit.commands.add import add_files_sync
 
 
 def _find_repository_root(start_path: Path) -> Path:
@@ -38,7 +38,7 @@ def init(
 ):
     """Initialize a new Git repository."""
     repo_path = Path(path).resolve()
-    init_repository(repo_path, force=force)
+    init_repository_sync(repo_path, force=force)
 
 
 @app.command()
@@ -51,7 +51,7 @@ def add(
     # Find the repository root by looking for .git directory
     current_path = Path.cwd()
     repo_path = _find_repository_root(current_path)
-    add_files(files, repo_path)
+    add_files_sync(files, repo_path)
 
 
 def main():
