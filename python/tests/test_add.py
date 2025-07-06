@@ -316,10 +316,10 @@ async def test_add_single_file_permission_error(tmp_path, capsys, monkeypatch):
         async def __aexit__(self, *_args):
             pass
 
-    def mock_open(*args, **kwargs):
-        if str(args[0]).endswith("test.txt") and "rb" in args:
+    def mock_open(file, *args, **kwargs):
+        if str(file).endswith("test.txt") and "rb" in args:
             return MockAsyncContext()
-        return aiofiles.open(*args, **kwargs)
+        return aiofiles.open(file, *args, **kwargs)
 
     monkeypatch.setattr(aiofiles, "open", mock_open)
 
@@ -354,10 +354,10 @@ async def test_add_single_file_is_directory_error(tmp_path, capsys, monkeypatch)
         async def __aexit__(self, *_args):
             pass
 
-    def mock_open(*args, **kwargs):
-        if str(args[0]).endswith("testdir") and "rb" in args:
+    def mock_open(file, *args, **kwargs):
+        if str(file).endswith("testdir") and "rb" in args:
             return MockAsyncContext()
-        return aiofiles.open(*args, **kwargs)
+        return aiofiles.open(file, *args, **kwargs)
 
     monkeypatch.setattr(aiofiles, "open", mock_open)
 
@@ -392,10 +392,10 @@ async def test_add_single_file_general_os_error(tmp_path, capsys, monkeypatch):
         async def __aexit__(self, *_args):
             pass
 
-    def mock_open(*args, **kwargs):
-        if str(args[0]).endswith("test.txt") and "rb" in args:
+    def mock_open(file, *args, **kwargs):
+        if str(file).endswith("test.txt") and "rb" in args:
             return MockAsyncContext()
-        return aiofiles.open(*args, **kwargs)
+        return aiofiles.open(file, *args, **kwargs)
 
     monkeypatch.setattr(aiofiles, "open", mock_open)
 
