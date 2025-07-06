@@ -46,7 +46,7 @@ async def cat_file(
 
     # Output based on options
     if show_type:
-        print(git_object.get_type().value)
+        print(git_object.type.value)
     elif show_size:
         print(git_object.size)
     elif pretty_print:
@@ -133,17 +133,18 @@ async def _parse_git_object(object_id: str, objects_dir: Path) -> GitObjectUnion
     except ValueError:
         raise RuntimeError(f"fatal: Unknown object type {obj_type_str}")
 
-    if obj_type == GitObjectType.BLOB:
-        return BlobObject(object_id=object_id, size=obj_size, content=content)
-    elif obj_type == GitObjectType.TREE:
-        entries = parse_tree_content(content)
-        return TreeObject(object_id=object_id, size=obj_size, entries=entries)
-    elif obj_type == GitObjectType.COMMIT:
-        return _parse_commit_object(object_id, obj_size, content)
-    elif obj_type == GitObjectType.TAG:
-        return _parse_tag_object(object_id, obj_size, content)
-    else:
-        raise RuntimeError(f"fatal: Unsupported object type {obj_type}")
+    match obj_type:
+        case GitObjectType.BLOB:
+            return BlobObject(object_id=object_id, size=obj_size, content=content)
+        case GitObjectType.TREE:
+            entries = parse_tree_content(content)
+            return TreeObject(object_id=object_id, size=obj_size, entries=entries)
+        case GitObjectType.COMMIT:
+            return _parse_commit_object(object_id, obj_size, content)
+        case GitObjectType.TAG:
+            return _parse_tag_object(object_id, obj_size, content)
+        case _:
+            raise RuntimeError(f"fatal: Unsupported object type {obj_type}")
 
 
 def _parse_commit_object(object_id: str, size: int, content: bytes) -> CommitObject:
