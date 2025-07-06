@@ -258,7 +258,6 @@ async def test_collect_files_ignores_git_directory(tmp_path):
 @pytest.mark.asyncio
 async def test_add_single_file_unit(tmp_path):
     """Test _add_single_file function directly."""
-    import asyncio
 
     # Setup
     await init_repository(tmp_path)
