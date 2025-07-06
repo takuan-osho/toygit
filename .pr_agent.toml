@@ -1,0 +1,7 @@
+[config]
+response_language = "ja-JP"
+
+[pr_reviewer]
+inline_code_comments = true
+require_score_review = true
+require_can_be_split_review = true
