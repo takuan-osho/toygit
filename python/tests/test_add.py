@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from toygit.commands.add import (
@@ -256,6 +258,8 @@ async def test_collect_files_ignores_git_directory(tmp_path):
 @pytest.mark.asyncio
 async def test_add_single_file_unit(tmp_path):
     """Test _add_single_file function directly."""
+    import asyncio
+
     # Setup
     await init_repository(tmp_path)
     test_file = tmp_path / "test.txt"
@@ -263,9 +267,10 @@ async def test_add_single_file_unit(tmp_path):
 
     objects_dir = tmp_path / ".git" / "objects"
     index = {}
+    index_lock = asyncio.Lock()
 
     # Test
-    await _add_single_file("test.txt", tmp_path, objects_dir, index)
+    await _add_single_file("test.txt", tmp_path, objects_dir, index, index_lock)
 
     # Verify
     assert "test.txt" in index
@@ -285,7 +290,8 @@ async def test_add_single_file_nonexistent(tmp_path, capsys):
     objects_dir.mkdir()
     index = {}
 
-    await _add_single_file("nonexistent.txt", tmp_path, objects_dir, index)
+    index_lock = asyncio.Lock()
+    await _add_single_file("nonexistent.txt", tmp_path, objects_dir, index, index_lock)
 
     # Should not be added to index
     assert "nonexistent.txt" not in index
@@ -323,7 +329,8 @@ async def test_add_single_file_permission_error(tmp_path, capsys, monkeypatch):
 
     monkeypatch.setattr(aiofiles, "open", mock_open)
 
-    await _add_single_file("test.txt", tmp_path, objects_dir, index)
+    index_lock = asyncio.Lock()
+    await _add_single_file("test.txt", tmp_path, objects_dir, index, index_lock)
 
     # Should not be added to index
     assert "test.txt" not in index
@@ -361,7 +368,8 @@ async def test_add_single_file_is_directory_error(tmp_path, capsys, monkeypatch)
 
     monkeypatch.setattr(aiofiles, "open", mock_open)
 
-    await _add_single_file("testdir", tmp_path, objects_dir, index)
+    index_lock = asyncio.Lock()
+    await _add_single_file("testdir", tmp_path, objects_dir, index, index_lock)
 
     # Should not be added to index
     assert "testdir" not in index
@@ -399,7 +407,8 @@ async def test_add_single_file_general_os_error(tmp_path, capsys, monkeypatch):
 
     monkeypatch.setattr(aiofiles, "open", mock_open)
 
-    await _add_single_file("test.txt", tmp_path, objects_dir, index)
+    index_lock = asyncio.Lock()
+    await _add_single_file("test.txt", tmp_path, objects_dir, index, index_lock)
 
     # Should not be added to index
     assert "test.txt" not in index
@@ -421,7 +430,8 @@ async def test_add_single_file_atomic_write_success(tmp_path):
     test_content = "test content for atomic write"
     test_file.write_text(test_content)
 
-    await _add_single_file("test.txt", tmp_path, objects_dir, index)
+    index_lock = asyncio.Lock()
+    await _add_single_file("test.txt", tmp_path, objects_dir, index, index_lock)
 
     # Should be added to index
     assert "test.txt" in index
@@ -475,8 +485,9 @@ async def test_add_single_file_atomic_write_temp_cleanup(tmp_path, monkeypatch):
     monkeypatch.setattr(os, "rename", mock_rename)
 
     # This should raise an exception but clean up temp files
+    index_lock = asyncio.Lock()
     with pytest.raises(OSError, match="Simulated rename error"):
-        await _add_single_file("test.txt", tmp_path, objects_dir, index)
+        await _add_single_file("test.txt", tmp_path, objects_dir, index, index_lock)
 
     # Temp file should have been cleaned up
     for temp_file in temp_files_created:
@@ -501,7 +512,8 @@ async def test_add_single_file_existing_blob_not_overwritten(tmp_path):
     test_file.write_text(test_content)
 
     # Add file first time
-    await _add_single_file("test.txt", tmp_path, objects_dir, index)
+    index_lock = asyncio.Lock()
+    await _add_single_file("test.txt", tmp_path, objects_dir, index, index_lock)
 
     # Get the blob path and modify it
     blob_hash = index["test.txt"]
@@ -517,7 +529,8 @@ async def test_add_single_file_existing_blob_not_overwritten(tmp_path):
     time.sleep(0.01)
 
     # Add same file again
-    await _add_single_file("test.txt", tmp_path, objects_dir, index)
+    index_lock = asyncio.Lock()
+    await _add_single_file("test.txt", tmp_path, objects_dir, index, index_lock)
 
     # File should not have been recreated (mtime should be same)
     assert obj_file.stat().st_mtime == original_mtime

@@ -81,10 +81,11 @@ async def add_files(files: list[str], repo_path: Optional[Path] = None) -> None:
 
     # Process files concurrently in batches to avoid overwhelming the system
     semaphore = asyncio.Semaphore(10)  # Limit concurrent operations
+    index_lock = asyncio.Lock()  # Protect index modifications from race conditions
 
     async def process_with_semaphore(file_path: str, repo: Path):
         async with semaphore:
-            await _add_single_file(file_path, repo, objects_dir, index)
+            await _add_single_file(file_path, repo, objects_dir, index, index_lock)
 
     tasks = [process_with_semaphore(file_path, repo_path) for file_path in files_to_add]
     await asyncio.gather(*tasks)
@@ -92,12 +93,16 @@ async def add_files(files: list[str], repo_path: Optional[Path] = None) -> None:
 
 
 async def _add_single_file(
-    file_path: str, repo_path: Path, objects_dir: Path, index: dict
+    file_path: str,
+    repo_path: Path,
+    objects_dir: Path,
+    index: dict,
+    index_lock: asyncio.Lock,
 ) -> None:
     """Add a single file to the staging area."""
     full_path = repo_path / file_path
 
-    # Read file content with specific error handling
+    # Read file content with comprehensive error handling
     try:
         async with aiofiles.open(full_path, "rb") as f:
             content = await f.read()
@@ -112,8 +117,11 @@ async def _add_single_file(
     except IsADirectoryError:
         print(f"error: '{file_path}' is a directory")
         return
-    except OSError as e:
+    except (OSError, IOError) as e:
         print(f"error: unable to read file '{file_path}': {e}")
+        return
+    except Exception as e:
+        print(f"error: unexpected error reading file '{file_path}': {e}")
         return
 
     # Create blob object
@@ -142,8 +150,9 @@ async def _add_single_file(
                 pass
             raise
 
-    # Update index
-    index[file_path] = blob_hash
+    # Update index with thread-safe locking
+    async with index_lock:
+        index[file_path] = blob_hash
     print(f"add '{file_path}'")
 
 

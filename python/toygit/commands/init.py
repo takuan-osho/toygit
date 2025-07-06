@@ -41,17 +41,17 @@ async def init_repository(path: Path, force: bool = False) -> None:
             shutil.rmtree(git_dir)
         git_dir.mkdir(exist_ok=True)
 
-        # Create required subdirectories concurrently
-        # exist_ok=True is safe for all subdirectories since parent is controlled
+        # Create required subdirectories in proper dependency order
+        # First create independent directories
         await asyncio.gather(
             asyncio.to_thread((git_dir / "objects").mkdir, exist_ok=True),
             asyncio.to_thread((git_dir / "refs").mkdir, exist_ok=True),
-            asyncio.to_thread(
-                (git_dir / "refs" / "heads").mkdir, parents=True, exist_ok=True
-            ),
-            asyncio.to_thread(
-                (git_dir / "refs" / "tags").mkdir, parents=True, exist_ok=True
-            ),
+        )
+
+        # Then create subdirectories that depend on refs
+        await asyncio.gather(
+            asyncio.to_thread((git_dir / "refs" / "heads").mkdir, exist_ok=True),
+            asyncio.to_thread((git_dir / "refs" / "tags").mkdir, exist_ok=True),
         )
 
         # Create HEAD file pointing to main branch
