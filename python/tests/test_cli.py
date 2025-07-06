@@ -45,6 +45,8 @@ class TestCliCommands:
         assert add_result.exit_code == 0
 
         # Get blob hash from index
+        # Note: This implementation uses a simple text-based index format
+        # In a real Git implementation, this would be a binary format
         index_file = Path(".git/index")
         index_content = index_file.read_text()
 

@@ -54,11 +54,8 @@ async def cat_file(
     else:
         # Default: show raw content
         content = git_object.get_content_bytes()
-        try:
-            print(content.decode("utf-8"), end="")
-        except UnicodeDecodeError:
-            # For binary content, print as-is
-            print(content.decode("utf-8", errors="replace"), end="")
+        # Use errors="replace" from the start to avoid double decode
+        print(content.decode("utf-8", errors="replace"), end="")
 
 
 async def _resolve_abbreviated_hash(abbrev_hash: str, objects_dir: Path) -> str:
@@ -173,10 +170,25 @@ def _parse_commit_object(object_id: str, size: int, content: bytes) -> CommitObj
         elif line.startswith("committer "):
             committer = parse_person_info(line[10:])
 
-    if not tree or not author or not committer:
-        raise RuntimeError(f"fatal: Invalid commit object {object_id}")
+    missing_fields = []
+    if not tree:
+        missing_fields.append("tree")
+    if not author:
+        missing_fields.append("author")
+    if not committer:
+        missing_fields.append("committer")
+
+    if missing_fields:
+        fields_str = ", ".join(missing_fields)
+        raise RuntimeError(
+            f"fatal: Invalid commit object {object_id}: missing required fields: {fields_str}"
+        )
 
     message = "\n".join(message_lines)
+
+    # Type assertions after validation - we know these are not None due to the checks above
+    assert author is not None
+    assert committer is not None
 
     return CommitObject(
         object_id=object_id,
@@ -218,10 +230,27 @@ def _parse_tag_object(object_id: str, size: int, content: bytes) -> TagObject:
         elif line.startswith("tagger "):
             tagger = parse_person_info(line[7:])
 
-    if not object_ref or not object_type or not tag_name or not tagger:
-        raise RuntimeError(f"fatal: Invalid tag object {object_id}")
+    missing_fields = []
+    if not object_ref:
+        missing_fields.append("object")
+    if not object_type:
+        missing_fields.append("type")
+    if not tag_name:
+        missing_fields.append("tag")
+    if not tagger:
+        missing_fields.append("tagger")
+
+    if missing_fields:
+        fields_str = ", ".join(missing_fields)
+        raise RuntimeError(
+            f"fatal: Invalid tag object {object_id}: missing required fields: {fields_str}"
+        )
 
     message = "\n".join(message_lines)
+
+    # Type assertions after validation - we know these are not None due to the checks above
+    assert object_type is not None
+    assert tagger is not None
 
     return TagObject(
         object_id=object_id,

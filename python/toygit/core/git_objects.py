@@ -64,14 +64,10 @@ class BlobObject(GitObject):
     @classmethod
     def validate_size(cls, v, info):
         """Validate that size matches content length."""
-        if (
-            hasattr(info, "data")
-            and "content" in info.data
-            and len(info.data["content"]) != v
-        ):
-            raise ValueError(
-                f"Size {v} doesn't match content length {len(info.data['content'])}"
-            )
+        if info.context is not None and "content" in info.context:
+            content_len = len(info.context["content"])
+            if content_len != v:
+                raise ValueError(f"Size {v} doesn't match content length {content_len}")
         return v
 
 
@@ -128,10 +124,12 @@ class TreeObject(GitObject):
     @classmethod
     def validate_size(cls, v, info):
         """Validate that size matches serialized content length."""
-        if hasattr(info, "data") and "entries" in info.data:
+        if info.context is not None and "entries" in info.context:
+            entries = info.context["entries"]
             content_size = sum(
                 len(f"{entry.mode} {entry.name}\0".encode("utf-8")) + 20
-                for entry in info.data["entries"]
+                for entry in entries
+                if hasattr(entry, "mode") and hasattr(entry, "name")
             )
             if content_size != v:
                 raise ValueError(
