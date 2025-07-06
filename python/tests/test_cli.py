@@ -85,6 +85,7 @@ class TestCliCommands:
             result2: Result = runner.invoke(app, ["init"])
             assert result2.exit_code != 0
             # Check that the error is the expected FileExistsError
+            assert result2.exception is not None
             assert isinstance(result2.exception, FileExistsError)
             assert "already exists" in str(result2.exception)
 
