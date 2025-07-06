@@ -1,18 +1,20 @@
 """Unit tests for Git object models and parsing functions."""
 
-import pytest
 from datetime import datetime
+
+import pydantic
+import pytest
 
 from toygit.core.git_objects import (
     BlobObject,
-    TreeObject,
-    TreeEntry,
     CommitObject,
-    TagObject,
-    PersonInfo,
     GitObjectType,
-    parse_tree_content,
+    PersonInfo,
+    TagObject,
+    TreeEntry,
+    TreeObject,
     parse_person_info,
+    parse_tree_content,
 )
 
 

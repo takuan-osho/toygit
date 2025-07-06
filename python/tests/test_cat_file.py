@@ -11,11 +11,7 @@ from toygit.commands.cat_file import (
     _resolve_abbreviated_hash,
     cat_file_sync,
 )
-from toygit.core.git_objects import (
-    BlobObject,
-    TreeObject,
-    GitObjectType,
-)
+from toygit.core.git_objects import BlobObject, GitObjectType, TreeObject
 
 
 class TestCatFileInternalLogic:
