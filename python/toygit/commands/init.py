@@ -46,8 +46,12 @@ async def init_repository(path: Path, force: bool = False) -> None:
         await asyncio.gather(
             asyncio.to_thread((git_dir / "objects").mkdir, exist_ok=True),
             asyncio.to_thread((git_dir / "refs").mkdir, exist_ok=True),
-            asyncio.to_thread((git_dir / "refs" / "heads").mkdir, parents=True, exist_ok=True),
-            asyncio.to_thread((git_dir / "refs" / "tags").mkdir, parents=True, exist_ok=True)
+            asyncio.to_thread(
+                (git_dir / "refs" / "heads").mkdir, parents=True, exist_ok=True
+            ),
+            asyncio.to_thread(
+                (git_dir / "refs" / "tags").mkdir, parents=True, exist_ok=True
+            ),
         )
 
         # Create HEAD file pointing to main branch

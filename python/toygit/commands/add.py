@@ -49,13 +49,13 @@ async def _collect_files_to_add(files: list[str], repo_path: Path) -> list[str]:
         else:
             if not _is_ignored(full_path, repo_path):
                 collected.append(file_path)
-        
+
         return collected
 
     # Process files concurrently
     tasks = [process_file(file_path) for file_path in files]
     results = await asyncio.gather(*tasks)
-    
+
     for file_list in results:
         files_to_add.extend(file_list)
 
@@ -81,15 +81,12 @@ async def add_files(files: list[str], repo_path: Optional[Path] = None) -> None:
 
     # Process files concurrently in batches to avoid overwhelming the system
     semaphore = asyncio.Semaphore(10)  # Limit concurrent operations
-    tasks = []
-    
-    async def process_with_semaphore(file_path: str):
+
+    async def process_with_semaphore(file_path: str, repo: Path):
         async with semaphore:
-            await _add_single_file(file_path, repo_path, objects_dir, index)
-    
-    for file_path in files_to_add:
-        tasks.append(process_with_semaphore(file_path))
-    
+            await _add_single_file(file_path, repo, objects_dir, index)
+
+    tasks = [process_with_semaphore(file_path, repo_path) for file_path in files_to_add]
     await asyncio.gather(*tasks)
     await _save_index(index, index_file)
 
@@ -132,6 +129,7 @@ async def _add_single_file(
         # Use atomic write to prevent race conditions
         temp_fd, temp_path = tempfile.mkstemp(dir=obj_dir)
         try:
+            os.close(temp_fd)  # Close file descriptor since we'll use aiofiles
             async with aiofiles.open(temp_path, "wb") as f:
                 await f.write(blob_data)
             # Atomic move - this prevents corruption from concurrent writes

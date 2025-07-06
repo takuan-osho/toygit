@@ -1,5 +1,4 @@
 import pytest
-import pytest_asyncio
 
 from toygit.commands.add import (
     add_files,
@@ -313,7 +312,8 @@ async def test_add_single_file_permission_error(tmp_path, capsys, monkeypatch):
     class MockAsyncContext:
         async def __aenter__(self):
             raise PermissionError("Permission denied")
-        async def __aexit__(self, *args):
+
+        async def __aexit__(self, *_args):
             pass
 
     def mock_open(*args, **kwargs):
@@ -350,7 +350,8 @@ async def test_add_single_file_is_directory_error(tmp_path, capsys, monkeypatch)
     class MockAsyncContext:
         async def __aenter__(self):
             raise IsADirectoryError("Is a directory")
-        async def __aexit__(self, *args):
+
+        async def __aexit__(self, *_args):
             pass
 
     def mock_open(*args, **kwargs):
@@ -387,7 +388,8 @@ async def test_add_single_file_general_os_error(tmp_path, capsys, monkeypatch):
     class MockAsyncContext:
         async def __aenter__(self):
             raise OSError("Input/output error")
-        async def __aexit__(self, *args):
+
+        async def __aexit__(self, *_args):
             pass
 
     def mock_open(*args, **kwargs):
@@ -466,7 +468,7 @@ async def test_add_single_file_atomic_write_temp_cleanup(tmp_path, monkeypatch):
         return fd, path
 
     # Mock os.rename to raise an error
-    def mock_rename(*args, **kwargs):
+    def mock_rename(*_args, **_kwargs):
         raise OSError("Simulated rename error")
 
     monkeypatch.setattr(tempfile, "mkstemp", mock_mkstemp)
