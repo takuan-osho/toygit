@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,22 @@ from typer.testing import CliRunner
 
 from toygit.cli import _find_repository_root, app
 from toygit.commands.init import init_repository_sync
+
+
+def strip_ansi_codes(text: str) -> str:
+    """Remove ANSI escape sequences from text.
+
+    This is a workaround for ANSI color codes appearing in CLI test output
+    in GitHub Actions environment. Environment variables like NO_COLOR and
+    PY_COLORS do not seem to work reliably in GHA with Typer's CliRunner.
+
+    Related issues:
+    - https://github.com/tiangolo/typer/issues/231
+    - https://github.com/pallets/click/issues/2227
+    """
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", text)
+
 
 # Initialize the CLI runner for testing
 runner = CliRunner()
@@ -162,31 +179,39 @@ class TestCliCommands:
         """Test CLI help functionality."""
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "Toygit - A simple Git implementation" in result.output
-        assert "Commands" in result.output
-        assert "init" in result.output
-        assert "add" in result.output
+        # Strip ANSI codes since environment variables don't work reliably in GHA
+        clean_output = strip_ansi_codes(result.output)
+        assert "Toygit - A simple Git implementation" in clean_output
+        assert "Commands" in clean_output
+        assert "init" in clean_output
+        assert "add" in clean_output
 
     def test_cli_init_help(self):
         """Test 'toygit init --help' command."""
         result = runner.invoke(app, ["init", "--help"])
         assert result.exit_code == 0
-        assert "Initialize a new Git repository" in result.output
-        assert "--force" in result.output
+        # Strip ANSI codes since environment variables don't work reliably in GHA
+        clean_output = strip_ansi_codes(result.output)
+        assert "Initialize a new Git repository" in clean_output
+        assert "--force" in clean_output
 
     def test_cli_add_help(self):
         """Test 'toygit add --help' command."""
         result = runner.invoke(app, ["add", "--help"])
         assert result.exit_code == 0
-        assert "Add files to the staging area" in result.output
+        # Strip ANSI codes since environment variables don't work reliably in GHA
+        clean_output = strip_ansi_codes(result.output)
+        assert "Add files to the staging area" in clean_output
 
     def test_cli_no_args_shows_help(self):
         """Test that running toygit without arguments shows help."""
         result = runner.invoke(app, [])
         # Typer returns exit code 2 for no args when no_args_is_help=True
         assert result.exit_code == 2
-        assert "Usage:" in result.output
-        assert "Commands" in result.output
+        # Strip ANSI codes since environment variables don't work reliably in GHA
+        clean_output = strip_ansi_codes(result.output)
+        assert "Usage:" in clean_output
+        assert "Commands" in clean_output
 
 
 class TestFindRepositoryRoot:
