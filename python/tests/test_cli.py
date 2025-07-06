@@ -479,4 +479,3 @@ class TestCliIntegration:
             assert index_file.exists(), "Index file should exist after adding files"
             index_content = index_file.read_text()
             assert "src/main.py" in index_content
-
