@@ -180,7 +180,6 @@ class PersonInfo(BaseModel):
         return v
 
     @computed_field
-    @property
     def timezone_info(self) -> str:
         """Get timezone info string in ISO format."""
         # Convert +/-HHMM to ISO format like +/-HH:MM
