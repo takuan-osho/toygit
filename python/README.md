@@ -37,31 +37,19 @@ pip install -e .
 After installation, you can use the `toygit` command:
 
 ```bash
-# Initialize a new repository in current directory
-toygit init
+# Initialize a new repository
+toygit init [path] [--force]
 
-# Initialize a new repository in specific directory
-toygit init /path/to/directory
+# Add files to staging area
+toygit add <files...>
 
-# Force reinitialize existing repository
-toygit init --force
+# Show Git object information
+toygit cat-file [-t|-s|-p] <object-id>
 ```
 
 ### Python API
 
-You can also use ToyGit programmatically:
-
-```python
-from pathlib import Path
-from toygit.commands.init import init_repository
-
-# Initialize repository
-repo_path = Path("/path/to/repo")
-init_repository(repo_path)
-
-# With force flag
-init_repository(repo_path, force=True)
-```
+You can also use ToyGit programmatically by importing the command modules from `toygit.commands`.
 
 ## Development
 
@@ -120,68 +108,45 @@ pre-commit run --all-files
 ```
 python/
 ├── toygit/                 # Main package
-│   ├── __init__.py
-│   ├── cli.py             # Command-line interface using Typer
+│   ├── cli.py             # Command-line interface
 │   ├── commands/          # Git command implementations
-│   │   ├── __init__.py
-│   │   └── init.py        # git init command
 │   └── core/              # Core Git functionality
-│       └── __init__.py
 ├── tests/                 # Test suite
-│   └── test_init.py       # Tests for git init
 ├── pyproject.toml         # Project configuration
 └── uv.lock               # Dependency lock file
 ```
 
-## Implementation Details
+## Architecture
 
-### Git Init Command
+### Command Pattern
+Each Git command is implemented as a separate module in `toygit.commands/`, following a consistent pattern:
+- Input validation and error handling
+- Core logic implementation
+- Integration with Git object models
 
-The `git init` command creates a standard Git repository structure:
+### Git Object Models
+Type-safe Pydantic models for Git objects (blob, tree, commit, tag) with comprehensive validation and parsing.
 
-```
-.git/
-├── objects/              # Object database
-├── refs/                # References
-│   ├── heads/           # Branch references
-│   └── tags/            # Tag references
-└── HEAD                 # Current branch pointer
-```
-
-### Error Handling
-
-The implementation includes comprehensive error handling for:
-
-- Non-existent target directories
-- Permission errors
-- Existing repositories (without `--force`)
-- Invalid paths
+### CLI Integration
+Uses Typer for command-line interface with automatic help generation and type validation.
 
 ### Testing Strategy
 
-- **Unit Tests**: Each command is thoroughly tested
-- **Edge Cases**: Comprehensive coverage of error conditions
+- **Unit Tests**: Each command and component is thoroughly tested
+- **Modular Test Organization**: Separate test files for each major component
+- **Edge Cases**: Comprehensive coverage of error conditions and validation
 - **Integration Tests**: Full command-line interface testing
 - **Property-Based Testing**: Using pytest-randomly for additional test coverage
 
 ## Configuration
 
-### pyproject.toml
-
-Key configuration sections:
-
-- **Dependencies**: Minimal runtime dependencies (only Typer)
-- **Development Dependencies**: Comprehensive dev tools
-- **Scripts**: Command-line entry points
-- **Build System**: Uses Hatchling for packaging
-
-### Development Tools
+The project uses modern Python tooling:
 
 - **Ruff**: Fast Python linter and formatter
-- **Pytest**: Testing framework with plugins
-- **Pre-commit**: Git hook management
-- **pytest-cov**: Coverage reporting
-- **pytest-xdist**: Parallel test execution
+- **Pytest**: Testing framework with plugins for coverage and parallel execution
+- **Pre-commit**: Git hook management for code quality
+- **Typer**: CLI framework with automatic help generation
+- **Pydantic**: Type-safe data models with validation
 
 ## Troubleshooting
 
@@ -207,20 +172,40 @@ When contributing to the Python implementation:
 4. **Type Hints**: Use type annotations for better code clarity
 5. **Error Handling**: Include comprehensive error checking
 
+## Current Features
+
+The Python implementation currently supports:
+
+✅ **Repository Initialization** (`init`)
+- Creates `.git` directory structure
+- Supports force re-initialization
+
+✅ **File Staging** (`add`)
+- Adds files and directories to staging area
+- Updates index file
+
+✅ **Object Inspection** (`cat-file`)
+- Shows object type, size, and content
+- Supports abbreviated hash resolution
+
+✅ **Git Object Models**
+- Type-safe Pydantic models for all Git objects
+- Support for blob, tree, commit, and tag objects
+
 ## Future Enhancements
 
-The Python implementation is designed to be extensible. Planned additions:
+Planned additions:
 
-- Object storage (blobs, trees, commits)
-- Index/staging area management
 - Commit creation and history
 - Branch operations
-- File status tracking
-- Repository introspection tools
+- File status tracking (`status`)
+- Diff functionality
+- Merge operations
+- Remote repository support
 
-Each new feature will follow the same patterns established in the `init` command:
+Each new feature follows established patterns:
 - Dedicated module in `commands/`
 - Comprehensive error handling
 - Full test coverage
-- Type annotations
+- Type annotations with Pydantic models
 - CLI integration through Typer
