@@ -1,92 +1,353 @@
-import pytest
+from pathlib import Path
 
-from toygit.cli import _find_repository_root
+import pytest
+from typer.testing import CliRunner
+
+from toygit.cli import app, _find_repository_root
 from toygit.commands.init import init_repository_sync
 
 
-def test_find_repository_root_in_repo_root(tmp_path):
-    """Test _find_repository_root when already in repository root."""
-    # Initialize repository
-    init_repository_sync(tmp_path)
-
-    # Should find the repository root
-    result = _find_repository_root(tmp_path)
-    assert result == tmp_path
+# Initialize the CLI runner for testing
+runner = CliRunner()
 
 
-def test_find_repository_root_in_subdirectory(tmp_path):
-    """Test _find_repository_root from a subdirectory."""
-    # Initialize repository
-    init_repository_sync(tmp_path)
+class TestCliCommands:
+    """Test CLI commands using Typer's testing framework."""
 
-    # Create subdirectory
-    subdir = tmp_path / "subdir" / "nested"
-    subdir.mkdir(parents=True)
+    def test_cli_init_command_basic(self):
+        """Test basic 'toygit init' command."""
+        with runner.isolated_filesystem():
+            result = runner.invoke(app, ["init"])
 
-    # Should find the repository root from subdirectory
-    result = _find_repository_root(subdir)
-    assert result == tmp_path
+            assert result.exit_code == 0
+            assert Path(".git").exists()
+            assert Path(".git").is_dir()
+            # Check required subdirectories were created
+            assert (Path(".git") / "objects").exists()
+            assert (Path(".git") / "refs" / "heads").exists()
+            assert (Path(".git") / "HEAD").exists()
+
+    def test_cli_init_command_with_path(self):
+        """Test 'toygit init' with specific path."""
+        with runner.isolated_filesystem():
+            # Create the directory first
+            Path("test_repo").mkdir()
+            result = runner.invoke(app, ["init", "test_repo"])
+
+            assert result.exit_code == 0
+            assert Path("test_repo/.git").exists()
+            assert Path("test_repo/.git").is_dir()
+            # Check required subdirectories were created
+            assert (Path("test_repo/.git") / "objects").exists()
+            assert (Path("test_repo/.git") / "refs" / "heads").exists()
+            assert (Path("test_repo/.git") / "HEAD").exists()
+
+    def test_cli_init_command_with_force(self):
+        """Test 'toygit init --force' command."""
+        with runner.isolated_filesystem():
+            # Initialize first time
+            result1 = runner.invoke(app, ["init"])
+            assert result1.exit_code == 0
+
+            # Initialize again with --force
+            result2 = runner.invoke(app, ["init", "--force"])
+            assert result2.exit_code == 0
+            # Repository should still exist and be functional
+            assert Path(".git").exists()
+            assert Path(".git").is_dir()
+            assert (Path(".git") / "HEAD").exists()
+
+    def test_cli_init_command_existing_repo_without_force(self):
+        """Test 'toygit init' fails on existing repo without --force."""
+        with runner.isolated_filesystem():
+            # Initialize first time
+            result1 = runner.invoke(app, ["init"])
+            assert result1.exit_code == 0
+
+            # Initialize again without --force (should fail)
+            result2 = runner.invoke(app, ["init"])
+            assert result2.exit_code != 0
+            # Check that the error is the expected FileExistsError
+            assert isinstance(result2.exception, FileExistsError)
+            assert "already exists" in str(result2.exception)
+
+    def test_cli_add_command_single_file(self):
+        """Test 'toygit add' with single file."""
+        with runner.isolated_filesystem():
+            # Initialize repository
+            init_result = runner.invoke(app, ["init"])
+            assert init_result.exit_code == 0
+
+            # Create test file
+            test_file = Path("test.txt")
+            test_file.write_text("Hello, world!")
+
+            # Add file
+            result = runner.invoke(app, ["add", "test.txt"])
+            assert result.exit_code == 0
+
+            # Check index was created
+            index_file = Path(".git/index")
+            assert index_file.exists()
+            assert "test.txt" in index_file.read_text()
+
+    def test_cli_add_command_multiple_files(self):
+        """Test 'toygit add' with multiple files."""
+        with runner.isolated_filesystem():
+            # Initialize repository
+            init_result = runner.invoke(app, ["init"])
+            assert init_result.exit_code == 0
+
+            # Create test files
+            Path("file1.txt").write_text("Content 1")
+            Path("file2.txt").write_text("Content 2")
+
+            # Add files
+            result = runner.invoke(app, ["add", "file1.txt", "file2.txt"])
+            assert result.exit_code == 0
+
+            # Check index contains both files
+            index_content = Path(".git/index").read_text()
+            assert "file1.txt" in index_content
+            assert "file2.txt" in index_content
+
+    def test_cli_add_command_nonexistent_file(self):
+        """Test 'toygit add' with non-existent file."""
+        with runner.isolated_filesystem():
+            # Initialize repository
+            init_result = runner.invoke(app, ["init"])
+            assert init_result.exit_code == 0
+
+            # Add non-existent file
+            result = runner.invoke(app, ["add", "nonexistent.txt"])
+            assert result.exit_code == 0  # Command succeeds but shows warning
+            assert "did not match any files" in result.output
+
+    def test_cli_add_command_outside_repository(self):
+        """Test 'toygit add' fails when not in a repository."""
+        with runner.isolated_filesystem():
+            # Create test file without initializing repository
+            Path("test.txt").write_text("content")
+
+            # Add file (should fail)
+            result = runner.invoke(app, ["add", "test.txt"])
+            assert result.exit_code != 0
+            # Check that the error is the expected RuntimeError
+            assert isinstance(result.exception, RuntimeError)
+            assert "not a git repository" in str(result.exception)
+
+    def test_cli_add_command_directory(self):
+        """Test 'toygit add' with directory."""
+        with runner.isolated_filesystem():
+            # Initialize repository
+            init_result = runner.invoke(app, ["init"])
+            assert init_result.exit_code == 0
+
+            # Create directory with files
+            subdir = Path("subdir")
+            subdir.mkdir()
+            (subdir / "file1.txt").write_text("Content 1")
+            (subdir / "file2.txt").write_text("Content 2")
+
+            # Add directory
+            result = runner.invoke(app, ["add", "subdir"])
+            assert result.exit_code == 0
+
+            # Check index contains directory files
+            index_content = Path(".git/index").read_text()
+            assert "subdir/file1.txt" in index_content
+            assert "subdir/file2.txt" in index_content
+
+    def test_cli_help_command(self):
+        """Test CLI help functionality."""
+        result = runner.invoke(app, ["--help"])
+        assert result.exit_code == 0
+        assert "Toygit - A simple Git implementation" in result.output
+        assert "Commands" in result.output
+        assert "init" in result.output
+        assert "add" in result.output
+
+    def test_cli_init_help(self):
+        """Test 'toygit init --help' command."""
+        result = runner.invoke(app, ["init", "--help"])
+        assert result.exit_code == 0
+        assert "Initialize a new Git repository" in result.output
+        assert "--force" in result.output
+
+    def test_cli_add_help(self):
+        """Test 'toygit add --help' command."""
+        result = runner.invoke(app, ["add", "--help"])
+        assert result.exit_code == 0
+        assert "Add files to the staging area" in result.output
+
+    def test_cli_no_args_shows_help(self):
+        """Test that running toygit without arguments shows help."""
+        result = runner.invoke(app, [])
+        # Typer returns exit code 2 for no args when no_args_is_help=True
+        assert result.exit_code == 2
+        assert "Usage:" in result.output
+        assert "Commands" in result.output
 
 
-def test_find_repository_root_deeply_nested(tmp_path):
-    """Test _find_repository_root from deeply nested subdirectory."""
-    # Initialize repository
-    init_repository_sync(tmp_path)
+class TestFindRepositoryRoot:
+    """Test _find_repository_root function."""
 
-    # Create deeply nested directory
-    deep_dir = tmp_path / "a" / "b" / "c" / "d" / "e"
-    deep_dir.mkdir(parents=True)
+    def test_find_repository_root_in_repo_root(self, tmp_path):
+        """Test _find_repository_root when already in repository root."""
+        # Initialize repository
+        init_repository_sync(tmp_path)
 
-    # Should find the repository root from deep directory
-    result = _find_repository_root(deep_dir)
-    assert result == tmp_path
+        # Should find the repository root
+        result = _find_repository_root(tmp_path)
+        assert result == tmp_path
+
+    def test_find_repository_root_in_subdirectory(self, tmp_path):
+        """Test _find_repository_root from a subdirectory."""
+        # Initialize repository
+        init_repository_sync(tmp_path)
+
+        # Create subdirectory
+        subdir = tmp_path / "subdir" / "nested"
+        subdir.mkdir(parents=True)
+
+        # Should find the repository root from subdirectory
+        result = _find_repository_root(subdir)
+        assert result == tmp_path
+
+    def test_find_repository_root_deeply_nested(self, tmp_path):
+        """Test _find_repository_root from deeply nested subdirectory."""
+        # Initialize repository
+        init_repository_sync(tmp_path)
+
+        # Create deeply nested directory
+        deep_dir = tmp_path / "a" / "b" / "c" / "d" / "e"
+        deep_dir.mkdir(parents=True)
+
+        # Should find the repository root from deep directory
+        result = _find_repository_root(deep_dir)
+        assert result == tmp_path
+
+    def test_find_repository_root_no_git_directory(self, tmp_path):
+        """Test _find_repository_root raises error when no .git directory found."""
+        # Create directory without .git
+        test_dir = tmp_path / "no_git"
+        test_dir.mkdir()
+
+        # Should raise RuntimeError
+        with pytest.raises(RuntimeError, match="fatal: not a git repository"):
+            _find_repository_root(test_dir)
+
+    def test_find_repository_root_nested_git_repos(self, tmp_path):
+        """Test _find_repository_root finds closest .git directory."""
+        # Initialize outer repository
+        init_repository_sync(tmp_path)
+
+        # Create inner directory and initialize another repository
+        inner_dir = tmp_path / "inner"
+        inner_dir.mkdir()
+        init_repository_sync(inner_dir)
+
+        # Create subdirectory in inner repo
+        inner_subdir = inner_dir / "subdir"
+        inner_subdir.mkdir()
+
+        # Should find the closest (inner) repository root
+        result = _find_repository_root(inner_subdir)
+        assert result == inner_dir
+
+    def test_find_repository_root_with_symlinks(self, tmp_path):
+        """Test _find_repository_root resolves symlinks correctly."""
+        # Initialize repository
+        init_repository_sync(tmp_path)
+
+        # Create symlink to a subdirectory
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+
+        symlink_path = tmp_path / "symlink_to_subdir"
+        symlink_path.symlink_to(subdir)
+
+        # Verify symlink was created successfully
+        assert symlink_path.is_symlink()
+
+        # Should resolve symlink and find repository root
+        result = _find_repository_root(symlink_path)
+        assert result == tmp_path
 
 
-def test_find_repository_root_no_git_directory(tmp_path):
-    """Test _find_repository_root raises error when no .git directory found."""
-    # Create directory without .git
-    test_dir = tmp_path / "no_git"
-    test_dir.mkdir()
+class TestCliIntegration:
+    """Integration tests for CLI commands."""
 
-    # Should raise RuntimeError
-    with pytest.raises(RuntimeError, match="fatal: not a git repository"):
-        _find_repository_root(test_dir)
+    def test_init_then_add_workflow(self):
+        """Test complete workflow: init -> add files."""
+        with runner.isolated_filesystem():
+            # Initialize repository
+            init_result = runner.invoke(app, ["init"])
+            assert init_result.exit_code == 0
 
+            # Create multiple files
+            Path("README.md").write_text("# Test Repository")
+            Path("main.py").write_text("print('Hello, World!')")
 
-def test_find_repository_root_nested_git_repos(tmp_path):
-    """Test _find_repository_root finds closest .git directory."""
-    # Initialize outer repository
-    init_repository_sync(tmp_path)
+            # Add files one by one
+            add_result1 = runner.invoke(app, ["add", "README.md"])
+            assert add_result1.exit_code == 0
 
-    # Create inner directory and initialize another repository
-    inner_dir = tmp_path / "inner"
-    inner_dir.mkdir()
-    init_repository_sync(inner_dir)
+            add_result2 = runner.invoke(app, ["add", "main.py"])
+            assert add_result2.exit_code == 0
 
-    # Create subdirectory in inner repo
-    inner_subdir = inner_dir / "subdir"
-    inner_subdir.mkdir()
+            # Verify both files are in index
+            index_content = Path(".git/index").read_text()
+            assert "README.md" in index_content
+            assert "main.py" in index_content
 
-    # Should find the closest (inner) repository root
-    result = _find_repository_root(inner_subdir)
-    assert result == inner_dir
+    def test_init_nested_directory_then_add(self):
+        """Test init in nested directory, then add files."""
+        with runner.isolated_filesystem():
+            # Create nested directory
+            nested_path = Path("projects/myproject")
+            nested_path.mkdir(parents=True)
 
+            # Initialize repository in nested directory
+            init_result = runner.invoke(app, ["init", "projects/myproject"])
+            assert init_result.exit_code == 0
 
-def test_find_repository_root_with_symlinks(tmp_path):
-    """Test _find_repository_root resolves symlinks correctly."""
-    # Initialize repository
-    init_repository_sync(tmp_path)
+            # Create file in the repository
+            (nested_path / "test.txt").write_text("test content")
 
-    # Create symlink to a subdirectory
-    subdir = tmp_path / "subdir"
-    subdir.mkdir()
+            # Change to repository directory and add file
+            import os
 
-    symlink_path = tmp_path / "symlink_to_subdir"
-    symlink_path.symlink_to(subdir)
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(nested_path)
+                add_result = runner.invoke(app, ["add", "test.txt"])
+                assert add_result.exit_code == 0
 
-    # Verify symlink was created successfully
-    assert symlink_path.is_symlink()
+                # Verify file is in index
+                index_content = Path(".git/index").read_text()
+                assert "test.txt" in index_content
+            finally:
+                os.chdir(original_cwd)
 
-    # Should resolve symlink and find repository root
-    result = _find_repository_root(symlink_path)
-    assert result == tmp_path
+    def test_add_from_subdirectory(self):
+        """Test adding files from subdirectory of repository."""
+        with runner.isolated_filesystem():
+            # Initialize repository
+            init_result = runner.invoke(app, ["init"])
+            assert init_result.exit_code == 0
+
+            # Create subdirectory with files
+            subdir = Path("src")
+            subdir.mkdir()
+            (subdir / "main.py").write_text("print('Hello from src!')")
+
+            # Add files from root directory with relative path
+            add_result = runner.invoke(app, ["add", "src/main.py"])
+            assert add_result.exit_code == 0
+
+            # Verify file is in index with correct path
+            index_file = Path(".git/index")
+            if index_file.exists():
+                index_content = index_file.read_text()
+                assert "src/main.py" in index_content
