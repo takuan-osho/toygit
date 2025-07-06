@@ -106,11 +106,11 @@ class TreeObject(GitObject):
 
     def get_content_bytes(self) -> bytes:
         """Serialize tree entries to git format."""
-        content = b""
+        chunks = []
         for entry in sorted(self.entries, key=lambda e: e.name):
-            content += f"{entry.mode} {entry.name}\0".encode("utf-8")
-            content += bytes.fromhex(entry.object_id)
-        return content
+            chunks.append(f"{entry.mode} {entry.name}\0".encode("utf-8"))
+            chunks.append(bytes.fromhex(entry.object_id))
+        return b"".join(chunks)
 
     def pretty_print(self) -> str:
         """Pretty print tree content."""
